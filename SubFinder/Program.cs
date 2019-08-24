@@ -7,6 +7,7 @@ using SubFinder.Scanners;
 using SubFinder.Scanners.Implementations;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace SubFinder
 {
@@ -15,7 +16,7 @@ namespace SubFinder
         private static IServiceProvider _serviceProvider;
         private static ILogger<Program> _logger;
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var config = GetConfiguration();
             Configure(config);
@@ -26,7 +27,12 @@ namespace SubFinder
 
             _logger.LogInformation("Application started");
 
+            var runner = _serviceProvider.GetRequiredService<TestRunner>();
+            await runner.Run(nameof(SonarrScanner));
+
             _logger.LogInformation("Application finished");
+
+            Console.ReadKey();
         }
 
         private static IConfigurationRoot GetConfiguration()
@@ -49,9 +55,10 @@ namespace SubFinder
 
             services.AddSingleton<IMediaScanner, RadarrScanner>();
             services.AddSingleton<IMediaScanner, SonarrScanner>();
+            services.AddSingleton<TestRunner>();
 
-            services.Configure<RadarrConfig>(configuration.TryGetSection("radarr"));
-            services.Configure<SonarrConfig>(configuration.TryGetSection("sonarr"));
+            services.Configure<RadarrConfig>(configuration.TryGetSection("Radarr"));
+            services.Configure<SonarrConfig>(configuration.TryGetSection("Sonarr"));
 
             _serviceProvider = services.BuildServiceProvider();
         }

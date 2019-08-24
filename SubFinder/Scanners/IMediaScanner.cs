@@ -1,9 +1,12 @@
-﻿using System.Threading.Tasks;
+﻿using SubFinder.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SubFinder.Scanners
 {
-    interface IMediaScanner
+    public interface IMediaScanner
     {
-        Task GetAllItemsAsync();
+        string ScannerName { get; }
+        Task<IList<Media>> GetDownloadedItemsAsync();
     }
 }
