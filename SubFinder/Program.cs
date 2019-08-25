@@ -28,7 +28,7 @@ namespace SubFinder
             _logger.LogInformation("Application started");
 
             var runner = _serviceProvider.GetRequiredService<TestRunner>();
-            await runner.Run(nameof(SonarrScanner));
+            await runner.Run();
 
             _logger.LogInformation("Application finished");
 
@@ -55,10 +55,12 @@ namespace SubFinder
 
             services.AddSingleton<IMediaScanner, RadarrScanner>();
             services.AddSingleton<IMediaScanner, SonarrScanner>();
+            services.AddSingleton<ISubtitleScanner, SubtitleScanner>();
             services.AddSingleton<TestRunner>();
 
             services.Configure<RadarrConfig>(configuration.TryGetSection("Radarr"));
             services.Configure<SonarrConfig>(configuration.TryGetSection("Sonarr"));
+            services.Configure<SubtitleConfig>(configuration.TryGetSection("Subtitles"));
 
             _serviceProvider = services.BuildServiceProvider();
         }

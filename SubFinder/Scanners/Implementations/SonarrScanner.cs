@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SonarrSharp;
 using SonarrSharp.Models;
@@ -71,14 +71,14 @@ namespace SubFinder.Scanners.Implementations
             {
                 Title = serie.Title,
                 ImdbId = serie.ImdbId,
-                Path = serie.Path,
+                SeriesFolder = serie.Path,
                 SeasonNumber = episode.SeasonNumber,
                 EpisodeNumber = episode.EpisodeNumber
             };
 
             if (file != null)
             {
-                converted.Path = file.Path;
+                converted.File = Path.GetFileName(file.Path);
                 converted.OriginalName = file.SceneName;
                 converted.Quality = file.Quality.Quality.Name.ToString();
                 converted.Proper = file.Quality.Proper;

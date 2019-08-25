@@ -1,9 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
+using SubFinder.Models;
 using SubFinder.Scanners;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SubFinder
@@ -12,23 +10,40 @@ namespace SubFinder
     {
         private readonly ILogger<TestRunner> _logger;
         private readonly IEnumerable<IMediaScanner> _scanners;
+        private readonly ISubtitleScanner _subtitleScanner;
 
         public TestRunner(
             ILogger<TestRunner> logger,
-            IEnumerable<IMediaScanner> scanners)
+            IEnumerable<IMediaScanner> scanners,
+            ISubtitleScanner subtitleScanner)
         {
             _logger = logger;
             _scanners = scanners;
+            _subtitleScanner = subtitleScanner;
         }
 
-        public async Task Run(string scannerName)
+        public async Task Run()
         {
-            var scanner = _scanners.FirstOrDefault(s => s.ScannerName == scannerName);
-            var items = await scanner?.GetDownloadedItemsAsync();
+            var missingSubtitles = new List<Media>();
+            var scanTasks = new List<Task<IList<Media>>>();
 
-            foreach (var item in items)
+            foreach (var scanner in _scanners)
             {
-                _logger.LogInformation(item.ToString());
+                scanTasks.Add(scanner.GetDownloadedItemsAsync());
+            }
+
+            await Task.WhenAll(scanTasks);
+
+            foreach (var scanResult in scanTasks)
+            {
+                foreach (var media in await scanResult)
+                {
+                    if (!_subtitleScanner.HasSubtitle(media))
+                    {
+                        missingSubtitles.Add(media);
+                        _logger.LogWarning($"No subtitle for {media.Title}");
+                    }
+                }
             }
         }
     }

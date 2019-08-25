@@ -41,12 +41,13 @@ namespace SubFinder.Scanners.Implementations
                 Title = movie.Title,
                 ImdbId = movie.ImdbId,
                 TmdbId = movie.TmdbId,
-                Path = movie.Path
+                MovieFolder = movie.Path
             };
 
             var fileInfo = movie.MovieFile;
             if (fileInfo != null)
             {
+                converted.File = fileInfo.RelativePath;
                 converted.OriginalName = fileInfo.SceneName;
                 converted.ReleaseGroup = fileInfo.ReleaseGroup;
                 converted.Edition = fileInfo.Edition;
