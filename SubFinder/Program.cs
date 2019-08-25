@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SubFinder.Activities;
 using SubFinder.Config;
 using SubFinder.Extensions;
 using SubFinder.Scanners;
@@ -21,14 +22,13 @@ namespace SubFinder
             var config = GetConfiguration();
             Configure(config);
 
-            _logger = _serviceProvider
-                .GetRequiredService<ILoggerFactory>()
+            _logger = _serviceProvider.GetRequiredService<ILoggerFactory>()
                 .CreateLogger<Program>();
 
             _logger.LogInformation("Application started");
 
-            var runner = _serviceProvider.GetRequiredService<TestRunner>();
-            await runner.Run();
+            var activity = _serviceProvider.GetRequiredService<ScanActivity>();
+            await activity.ExecuteAsync();
 
             _logger.LogInformation("Application finished");
 
@@ -56,7 +56,11 @@ namespace SubFinder
             services.AddSingleton<IMediaScanner, RadarrScanner>();
             services.AddSingleton<IMediaScanner, SonarrScanner>();
             services.AddSingleton<ISubtitleScanner, SubtitleScanner>();
-            services.AddSingleton<TestRunner>();
+
+            services.AddSingleton<ScanActivity>();
+            services.AddSingleton<DownloadSubtitleActivity>();
+            services.AddSingleton<SearchEpisodeSubtitlesActivity>();
+            services.AddSingleton<SearchMovieSubtitlesActivity>();
 
             services.Configure<RadarrConfig>(configuration.TryGetSection("Radarr"));
             services.Configure<SonarrConfig>(configuration.TryGetSection("Sonarr"));

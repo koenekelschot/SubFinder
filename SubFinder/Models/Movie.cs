@@ -1,6 +1,6 @@
 ﻿namespace SubFinder.Models
 {
-    public class RadarrMovie : Media
+    public class Movie : Media
     {
         public string MovieFolder { private get; set; }
         public override string Folder => MovieFolder;

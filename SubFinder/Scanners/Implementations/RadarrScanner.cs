@@ -3,9 +3,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using RadarrSharp;
-using RadarrSharp.Models;
 using SubFinder.Config;
 using SubFinder.Models;
+using RadarrMovie = RadarrSharp.Models.Movie;
 
 namespace SubFinder.Scanners.Implementations
 {
@@ -34,9 +34,9 @@ namespace SubFinder.Scanners.Implementations
             return media;
         }
 
-        private RadarrMovie ConvertMovie(Movie movie)
+        private Movie ConvertMovie(RadarrMovie movie)
         {
-            var converted = new RadarrMovie
+            var converted = new Movie
             {
                 Title = movie.Title,
                 ImdbId = movie.ImdbId,

@@ -4,9 +4,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using SonarrSharp;
-using SonarrSharp.Models;
 using SubFinder.Config;
 using SubFinder.Models;
+using SonarrEpisode = SonarrSharp.Models.Episode;
+using SonarrEpisodeFile = SonarrSharp.Models.EpisodeFile;
+using SonarrSeries = SonarrSharp.Models.Series;
 
 namespace SubFinder.Scanners.Implementations
 {
@@ -44,7 +46,7 @@ namespace SubFinder.Scanners.Implementations
             return media;
         }
 
-        private async Task<IList<Media>> GetSeriesInformationAsync(Series serie)
+        private async Task<IList<Media>> GetSeriesInformationAsync(SonarrSeries serie)
         {
             var media = new List<Media>();
 
@@ -65,9 +67,9 @@ namespace SubFinder.Scanners.Implementations
             return media;
         }
 
-        private SonarrEpisode ConvertEpisode(Series serie, Episode episode, EpisodeFile file)
+        private Episode ConvertEpisode(SonarrSeries serie, SonarrEpisode episode, SonarrEpisodeFile file)
         {
-            var converted = new SonarrEpisode
+            var converted = new Episode
             {
                 Title = serie.Title,
                 ImdbId = serie.ImdbId,
