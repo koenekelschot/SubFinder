@@ -2,6 +2,7 @@
 using SubFinder.Models;
 using SubFinder.Providers;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SubFinder.Activities
@@ -23,7 +24,7 @@ namespace SubFinder.Activities
         {
             _logger.LogInformation($"Searching subtitle for movie {movie.Title}");
 
-            var searchTasks = new List<Task>();
+            var searchTasks = new List<Task>(_subtitleProviders.Count());
 
             foreach (var provider in _subtitleProviders)
             {

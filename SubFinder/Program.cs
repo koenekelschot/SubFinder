@@ -64,7 +64,7 @@ namespace SubFinder
             services.AddSingleton<SearchEpisodeSubtitlesActivity>();
             services.AddSingleton<SearchMovieSubtitlesActivity>();
 
-            services.AddSingleton<ISubtitleProvider, OpenSubtitlesSubtitleProvider>();
+            services.AddSubtitleProvider<OpenSubtitlesSubtitleProvider>();
 
             services.Configure<RadarrConfig>(configuration.TryGetSection("Radarr"));
             services.Configure<SonarrConfig>(configuration.TryGetSection("Sonarr"));
