@@ -1,7 +1,9 @@
-﻿namespace SubFinder.Config
+﻿using static SubFinder.Languages.Language;
+
+namespace SubFinder.Config
 {
     public class SubtitleConfig
     {
-        public string[] PreferredLanguages { get; set; }
+        public IsoLanguage[] PreferredLanguages { get; set; }
     }
 }

@@ -2,6 +2,7 @@
 using System.IO;
 using Microsoft.Extensions.Options;
 using SubFinder.Config;
+using SubFinder.Languages;
 using SubFinder.Models;
 
 namespace SubFinder.Scanners.Implementations
@@ -9,14 +10,15 @@ namespace SubFinder.Scanners.Implementations
     public class SubtitleScanner : ISubtitleScanner
     {
         private const string SearchPattern = "*.srt";
-        private readonly IList<string> languageSuffixes = new List<string>();
+        private readonly IList<string> _languageSuffixes = new List<string>();
 
         public SubtitleScanner(
             IOptions<SubtitleConfig> config)
         {
-            foreach(var language in config.Value.PreferredLanguages)
+            foreach(var preferredLanguage in config.Value.PreferredLanguages)
             {
-                languageSuffixes.Add($".{language}");
+                var isoPart = Language.GetIsoPart1(preferredLanguage);
+                _languageSuffixes.Add($".{isoPart}");
             }
         }
 
@@ -37,7 +39,7 @@ namespace SubFinder.Scanners.Implementations
             foreach (var subtitle in subtitles)
             {
                 var filenameWithoutExtension = Path.GetFileNameWithoutExtension(subtitle.Name);
-                foreach (var languageSuffix in languageSuffixes)
+                foreach (var languageSuffix in _languageSuffixes)
                 {
                     if (filenameWithoutExtension.EndsWith(languageSuffix))
                     {

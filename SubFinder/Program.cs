@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using SubFinder.Activities;
 using SubFinder.Config;
 using SubFinder.Extensions;
+using SubFinder.Providers;
+using SubFinder.Providers.Implementations;
 using SubFinder.Scanners;
 using SubFinder.Scanners.Implementations;
 using System;
@@ -61,6 +63,8 @@ namespace SubFinder
             services.AddSingleton<DownloadSubtitleActivity>();
             services.AddSingleton<SearchEpisodeSubtitlesActivity>();
             services.AddSingleton<SearchMovieSubtitlesActivity>();
+
+            services.AddSingleton<ISubtitleProvider, OpenSubtitlesSubtitleProvider>();
 
             services.Configure<RadarrConfig>(configuration.TryGetSection("Radarr"));
             services.Configure<SonarrConfig>(configuration.TryGetSection("Sonarr"));
