@@ -24,7 +24,7 @@ namespace SubFinder.Activities
         {
             _logger.LogInformation($"Searching subtitle for movie {movie.Title}");
 
-            var searchTasks = new List<Task<IList<Subtitle>>>(_subtitleProviders.Count());
+            var searchTasks = new List<Task<IEnumerable<Subtitle>>>(_subtitleProviders.Count());
 
             foreach (var provider in _subtitleProviders)
             {

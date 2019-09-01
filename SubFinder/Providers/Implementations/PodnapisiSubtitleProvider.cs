@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
@@ -53,13 +51,13 @@ namespace SubFinder.Providers.Implementations
             _languages = config.Value.PreferredLanguages.Select(lang => Language.GetIsoPart1(lang));
         }
 
-        public async Task<IList<Subtitle>> SearchForEpisodeAsync(Episode episode)
+        public async Task<IEnumerable<Subtitle>> SearchForEpisodeAsync(Episode episode)
         {
             var requestUrl = SeriesSearchUri(episode.Title, episode.Year, episode.SeasonNumber, episode.EpisodeNumber);
             return await DoSearchRequestAsync(requestUrl);
         }
 
-        public async Task<IList<Subtitle>> SearchForMovieAsync(Movie movie)
+        public async Task<IEnumerable<Subtitle>> SearchForMovieAsync(Movie movie)
         {
             var requestUrl = MovieSearchUri(movie.Title, movie.Year);
             return await DoSearchRequestAsync(requestUrl);
@@ -76,7 +74,7 @@ namespace SubFinder.Providers.Implementations
             return await DoDownloadRequestAsync(requestUrl);
         }
 
-        private async Task<IList<Subtitle>> DoSearchRequestAsync(string requestUrl)
+        private async Task<IEnumerable<Subtitle>> DoSearchRequestAsync(string requestUrl)
         {
             try
             {
@@ -99,13 +97,12 @@ namespace SubFinder.Providers.Implementations
             }
         }
 
-        private IList<Subtitle> ParseSubtitles(HtmlDocument document)
+        private IEnumerable<Subtitle> ParseSubtitles(HtmlDocument document)
         {
             return document.DocumentNode
                 .Descendants()
                 .Where(node => node.GetAttributeValue("class", string.Empty) == "subtitle-entry")
-                .Select(node => ParseSubtitleNode(node))
-                .ToList();
+                .Select(node => ParseSubtitleNode(node));
         }
 
         private Subtitle ParseSubtitleNode(HtmlNode node)
@@ -178,7 +175,7 @@ namespace SubFinder.Providers.Implementations
             {
                 using (var responseStream = await _httpClient.GetStreamAsync(requestUrl))
                 {
-                    return await ExtractSubtitleFromResponseAsync(responseStream);
+                    return await responseStream.ExtractZippedSubtitleAsync();
                 }
             }
             catch (Exception e)
@@ -187,22 +184,6 @@ namespace SubFinder.Providers.Implementations
             }
 
             return new Memory<byte>();
-        }
-
-        private async Task<Memory<byte>> ExtractSubtitleFromResponseAsync(Stream responseStream)
-        {
-            using (var archive = new ZipArchive(responseStream))
-            {
-                var subtitleEntry = archive.Entries.FirstOrDefault(entry => entry.Name.EndsWith(".srt"));
-                var memory = new Memory<byte>(new byte[subtitleEntry.Length]);
-
-                using (var stream = subtitleEntry.Open())
-                {
-                    await stream.ReadAsync(memory);
-                }
-
-                return memory;
-            }
         }
     }
 }
