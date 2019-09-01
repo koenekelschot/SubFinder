@@ -22,7 +22,7 @@ namespace SubFinder.Providers.Implementations
         private string UrlMovieSearch(string imdbId) =>
             $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlymovies-on/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
         private string UrlSeriesSearch(string imdbId, int season, int episode) => 
-            $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0";
+            $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
         private static string UrlDownload(string subtitleId) =>
             $"http://dl.opensubtitles.org/en/download/vrf-108d030f/sub/{subtitleId}";
 
