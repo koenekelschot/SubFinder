@@ -17,15 +17,5 @@ namespace SubFinder.Extensions
 
             return string.Empty;
         }
-
-        public static int? GetOptionalChildNodeValue(this HtmlNode node, string childNode)
-        {
-            var value = node.ChildNodes[childNode]?.InnerText;
-            if (value != null)
-            {
-                return int.Parse(value);
-            }
-            return null;
-        }
     }
 }

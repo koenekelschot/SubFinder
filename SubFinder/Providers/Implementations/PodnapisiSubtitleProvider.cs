@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -15,42 +16,52 @@ using SubFinder.Models;
 
 namespace SubFinder.Providers.Implementations
 {
-    public class OpenSubtitlesSubtitleProvider : ISubtitleProvider
+    public class PodnapisiSubtitleProvider : ISubtitleProvider
     {
-        public string ProviderName => nameof(OpenSubtitlesSubtitleProvider);
+        public string ProviderName => nameof(PodnapisiSubtitleProvider);
 
-        private string MovieSearchUri(string imdbId) =>
-            $"en/search/sublanguageid-{_languages}/searchonlymovies-on/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
-        private string SeriesSearchUri(string imdbId, int season, int episode) => 
-            $"en/search/sublanguageid-{_languages}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
+        private string MovieSearchUri(string movieName, int movieYear) =>
+            SearchUri(movieName, movieYear, "movie");
+        private string SeriesSearchUri(string seriesName, int seriesYear, int season, int episode) =>
+            SearchUri(seriesName, seriesYear, "tv-series") + $"&seasons={season}&episodes={episode}";
         private static string DownloadUri(string subtitleId) =>
-            $"en/download/vrf-108d030f/sub/{subtitleId}";
+            $"en/subtitles/{subtitleId}/download";
 
-        private readonly ILogger<OpenSubtitlesSubtitleProvider> _logger;
-        private readonly OpenSubtitlesHttpClient _httpClient;
-        private readonly string _languages;
+        private string SearchUri(string name, int year, string type)
+        {
+            var url = $"subtitles/search/advanced?keywords={Uri.EscapeDataString(name)}&year={year}&movie_type={type}";
+            foreach (var language in _languages)
+            {
+                url += $"&language={language}";
+            }
+            return url;
+        }
 
-        public OpenSubtitlesSubtitleProvider(
-            ILogger<OpenSubtitlesSubtitleProvider> logger,
-            OpenSubtitlesHttpClient httpClient,
+        private readonly ILogger<PodnapisiSubtitleProvider> _logger;
+        private readonly PodnapisiHttpClient _httpClient;
+        private readonly IEnumerable<string> _languages;
+        private readonly CultureInfo _dateCulture = new CultureInfo("en-US", false);
+
+        public PodnapisiSubtitleProvider(
+            ILogger<PodnapisiSubtitleProvider> logger,
+            PodnapisiHttpClient httpClient,
             IOptions<SubtitleConfig> config)
         {
             _logger = logger;
             _httpClient = httpClient;
 
-            var isoLanguages = config.Value.PreferredLanguages.Select(lang => Language.GetIsoPart2Bibliographic(lang));
-            _languages = string.Join(',', isoLanguages);
+            _languages = config.Value.PreferredLanguages.Select(lang => Language.GetIsoPart1(lang));
         }
 
         public async Task<IList<Subtitle>> SearchForEpisodeAsync(Episode episode)
         {
-            var requestUrl = SeriesSearchUri(episode.ImdbId, episode.SeasonNumber, episode.EpisodeNumber);
+            var requestUrl = SeriesSearchUri(episode.Title, episode.Year, episode.SeasonNumber, episode.EpisodeNumber);
             return await DoSearchRequestAsync(requestUrl);
         }
 
         public async Task<IList<Subtitle>> SearchForMovieAsync(Movie movie)
         {
-            var requestUrl = MovieSearchUri(movie.ImdbId);
+            var requestUrl = MovieSearchUri(movie.Title, movie.Year);
             return await DoSearchRequestAsync(requestUrl);
         }
 
@@ -91,9 +102,8 @@ namespace SubFinder.Providers.Implementations
         private IList<Subtitle> ParseSubtitles(HtmlDocument document)
         {
             return document.DocumentNode
-                .Descendants("subtitle")
-                .Where(node => !node.ChildNodes
-                    .Any(cn => cn.Name.StartsWith("ads")))
+                .Descendants()
+                .Where(node => node.GetAttributeValue("class", string.Empty) == "subtitle-entry")
                 .Select(node => ParseSubtitleNode(node))
                 .ToList();
         }
@@ -103,26 +113,63 @@ namespace SubFinder.Providers.Implementations
             return new Subtitle
             {
                 Provider = ProviderName,
-                Id = node.ChildNodes["idsubtitle"].InnerText,
-                ReleaseName = node.ChildNodes["moviereleasename"].CharacterData(),
+                Id = GetSubtitleId(node),
+                ReleaseName = GetReleaseName(node),
                 Language = GetSubtitleLanguage(node),
                 Added = GetSubtitleDateAdded(node),
-                VotesBad = int.Parse(node.ChildNodes["subbad"].InnerText),
-                Rating = decimal.Parse(node.ChildNodes["subrating"].InnerText),
-                Downloads = int.Parse(node.ChildNodes["subdownloadscnt"].InnerText)
+                VotesBad = 0,
+                Rating = GetSubtitleRating(node),
+                Downloads = GetSubtitleDownloads(node),
             };
+        }
+
+        private string GetSubtitleId(HtmlNode node)
+        {
+            var href = node.GetAttributeValue("data-href", string.Empty);
+            return href.Split('/').Last();
+        }
+
+        private string GetReleaseName(HtmlNode node)
+        {
+            return node.Descendants("span")
+                .First(desc => desc.GetAttributeValue("class", string.Empty) == "release")
+                .InnerText;
         }
 
         private Language.IsoLanguage GetSubtitleLanguage(HtmlNode node)
         {
-            var languageString = node.ChildNodes["languagename"].InnerText;
-            return Language.GetLanguageFromString(languageString);
+            var languageValue = node.Descendants("abbr")
+                .First(desc => desc.GetAttributeValue("class", string.Empty).Contains("language-"))
+                .GetAttributeValue("data-title", string.Empty);
+            return Language.GetLanguageFromString(languageValue);
         }
 
         private DateTime GetSubtitleDateAdded(HtmlNode node)
         {
-            var date = node.ChildNodes["subadddate"].GetAttributeValue("rfc3339", string.Empty);
-            return DateTime.Parse(date);
+            var dateText = node.Descendants("td")
+                .Last()
+                .InnerText
+                .Trim();
+            return DateTime.Parse(dateText, _dateCulture);
+        }
+
+        private decimal GetSubtitleRating(HtmlNode node)
+        {
+            var rating = node.Descendants("div")
+                .First(desc => desc.GetAttributeValue("class", string.Empty).Contains("rating"))
+                .GetAttributeValue("data-title", "0.0% (0)");
+            var percentage = rating.Split('%').First();
+            var dec = decimal.Parse(percentage);
+            return dec * 0.1M;
+        }
+
+        private int GetSubtitleDownloads(HtmlNode node)
+        {
+            var downloads = node.Descendants("td")
+                .ElementAt(5)
+                .InnerText
+                .Trim();
+            return int.Parse(downloads);
         }
 
         private async Task<Memory<byte>> DoDownloadRequestAsync(string requestUrl)
