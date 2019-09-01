@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SubFinder.Config;
+using SubFinder.Extensions;
 using SubFinder.Languages;
 using SubFinder.Models;
 
@@ -14,16 +17,16 @@ namespace SubFinder.Providers.Implementations
     {
         public string ProviderName => nameof(OpenSubtitlesSubtitleProvider);
 
-        private static string UrlMovieSearch(string language, string imdbId) => 
-            $"https://www.opensubtitles.org/en/search/sublanguageid-{language}/searchonlymovies-on/hd-on/imdbid-{imdbId}/sort-7/asc-0";
-        private static string UrlSeriesSearch(string language, string imdbId, int season, int episode) => 
-            $"https://www.opensubtitles.org/en/search/sublanguageid-{language}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0";
+        private string UrlMovieSearch(string imdbId) =>
+            $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlymovies-on/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
+        private string UrlSeriesSearch(string imdbId, int season, int episode) => 
+            $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0";
         private static string UrlDownload(string subtitleId) => 
             $"https://dl.opensubtitles.org/en/download/sub/{subtitleId}";
 
         private readonly ILogger<OpenSubtitlesSubtitleProvider> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IList<string> _languages = new List<string>();
+        private readonly string _languages;
 
         public OpenSubtitlesSubtitleProvider(
             ILogger<OpenSubtitlesSubtitleProvider> logger,
@@ -33,54 +36,20 @@ namespace SubFinder.Providers.Implementations
             _logger = logger;
             _httpClientFactory = httpClientFactory;
 
-            foreach (var preferredLanguage in config.Value.PreferredLanguages)
-            {
-                _languages.Add(Language.GetIsoPart2Bibliographic(preferredLanguage));
-            }
+            var isoLanguages = config.Value.PreferredLanguages.Select(lang => Language.GetIsoPart2Bibliographic(lang));
+            _languages = string.Join(',', isoLanguages);
         }
 
         public async Task<IList<Subtitle>> SearchForEpisodeAsync(Episode episode)
         {
-            var requestUrls = new string[_languages.Count];
-
-            for (var i = 0; i < _languages.Count; i++)
-            {
-                requestUrls[i] = UrlSeriesSearch(_languages[i], episode.ImdbId, episode.SeasonNumber, episode.EpisodeNumber);
-            }
-
-            return await SearchSubtitlesAsync(requestUrls);
+            var requestUrl = UrlSeriesSearch(episode.ImdbId, episode.SeasonNumber, episode.EpisodeNumber);
+            return await DoSearchRequestAsync(requestUrl);
         }
 
         public async Task<IList<Subtitle>> SearchForMovieAsync(Movie movie)
         {
-            var requestUrls = new string[_languages.Count];
-
-            for (var i = 0; i < _languages.Count; i++)
-            {
-                requestUrls[i] = UrlMovieSearch(_languages[i], movie.ImdbId);
-            }
-
-            return await SearchSubtitlesAsync(requestUrls);
-        }
-
-        private async Task<IList<Subtitle>> SearchSubtitlesAsync(string[] requestUrls)
-        {
-            var results = new List<Subtitle>();
-            var searchTasks = new List<Task<IList<Subtitle>>>(requestUrls.Length);
-
-            foreach (var requestUrl in requestUrls)
-            {
-                searchTasks.Add(DoSearchRequestAsync(requestUrl));
-            }
-
-            await Task.WhenAll(searchTasks);
-
-            foreach (var searchResult in searchTasks)
-            {
-                results.AddRange(await searchResult);
-            }
-
-            return results;
+            var requestUrl = UrlMovieSearch(movie.ImdbId);
+            return await DoSearchRequestAsync(requestUrl);
         }
 
         private async Task<IList<Subtitle>> DoSearchRequestAsync(string requestUrl)
@@ -89,13 +58,63 @@ namespace SubFinder.Providers.Implementations
             {
                 var response = await _httpClientFactory.CreateClient(ProviderName).GetAsync(requestUrl);
                 response.EnsureSuccessStatusCode();
+
+                HtmlDocument document = new HtmlDocument();
+                document.LoadHtml(await response.Content.ReadAsStringAsync());
+
+                return ParseSubtitles(document);
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Oops");
+                _logger.LogError(e, $"Error parsing search results {ProviderName}");
+                return Array.Empty<Subtitle>();
+            }
+        }
+
+        private IList<Subtitle> ParseSubtitles(HtmlDocument document)
+        {
+            var nodes = document.DocumentNode
+                    .Descendants("subtitle")
+                    .Where(node => !node.ChildNodes
+                        .Any(cn => cn.Name.StartsWith("ads")));
+
+            var subtitles = new List<Subtitle>(nodes.Count());
+
+            foreach (var node in nodes)
+            {
+                subtitles.Add(ParseSubtitleNode(node));
             }
 
-            return Array.Empty<Subtitle>();
+            return subtitles;
+        }
+
+        private Subtitle ParseSubtitleNode(HtmlNode node)
+        {
+            return new Subtitle
+            {
+                Provider = ProviderName,
+                Id = node.ChildNodes["idsubtitlefile"].InnerText,
+                ReleaseName = node.ChildNodes["moviereleasename"].CharacterData(),
+                Language = GetSubtitleLanguage(node),
+                Added = GetSubtitleDateAdded(node),
+                VotesBad = int.Parse(node.ChildNodes["subbad"].InnerText),
+                Rating = decimal.Parse(node.ChildNodes["subrating"].InnerText),
+                Downloads = int.Parse(node.ChildNodes["subdownloadscnt"].InnerText),
+                Season = node.GetOptionalChildNodeValue("seriesseason"),
+                Episode = node.GetOptionalChildNodeValue("seriesepisode")
+            };
+        }
+
+        private Language.IsoLanguage GetSubtitleLanguage(HtmlNode node)
+        {
+            var languageString = node.ChildNodes["languagename"].InnerText;
+            return Language.GetLanguageFromString(languageString);
+        }
+
+        private DateTime GetSubtitleDateAdded(HtmlNode node)
+        {
+            var date = node.ChildNodes["subadddate"].GetAttributeValue("rfc3339", string.Empty);
+            return DateTime.Parse(date);
         }
     }
 }

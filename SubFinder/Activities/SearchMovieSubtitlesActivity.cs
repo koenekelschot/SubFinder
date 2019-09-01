@@ -20,11 +20,11 @@ namespace SubFinder.Activities
             _subtitleProviders = subtitleProviders;
         }
 
-        public async Task ExecuteAsync(Movie movie)
+        public async Task<IList<Subtitle>> ExecuteAsync(Movie movie)
         {
             _logger.LogInformation($"Searching subtitle for movie {movie.Title}");
 
-            var searchTasks = new List<Task>(_subtitleProviders.Count());
+            var searchTasks = new List<Task<IList<Subtitle>>>(_subtitleProviders.Count());
 
             foreach (var provider in _subtitleProviders)
             {
@@ -32,6 +32,14 @@ namespace SubFinder.Activities
             }
 
             await Task.WhenAll(searchTasks);
+
+            var subtitles = new List<Subtitle>();
+            foreach (var result in searchTasks)
+            {
+                subtitles.AddRange(await result);
+            }
+
+            return subtitles;
         }
     }
 }

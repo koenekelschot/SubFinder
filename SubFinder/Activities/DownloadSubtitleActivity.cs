@@ -1,5 +1,7 @@
 ﻿using SubFinder.Models;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SubFinder.Activities
@@ -19,21 +21,27 @@ namespace SubFinder.Activities
 
         public async Task ExecuteAsync(Media media)
         {
-            Task task;
+            IList<Subtitle> results;
 
             switch (media)
             {
                 case Episode episode:
-                    task = _searchEpisodeSubtitlesActivity.ExecuteAsync(episode);
+                    results = await _searchEpisodeSubtitlesActivity.ExecuteAsync(episode);
                     break;
                 case Movie movie:
-                    task = _searchMovieSubtitlesActivity.ExecuteAsync(movie);
+                    results = await _searchMovieSubtitlesActivity.ExecuteAsync(movie);
                     break;
                 default:
                     throw new NotSupportedException();
             }
 
-            await task;
+            var subtitles = results
+                .OrderByDescending(sub => sub.Downloads)
+                .ThenByDescending(sub => sub.Rating)
+                .ThenBy(sub => sub.VotesBad)
+                .GroupBy(sub => sub.Language)
+                .Select(lang => lang.First())
+                .ToList();
         }
     }
 }
