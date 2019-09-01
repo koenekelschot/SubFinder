@@ -72,6 +72,7 @@ namespace SubFinder.Scanners.Implementations
             var converted = new Episode
             {
                 Title = serie.Title,
+                Year = serie.Year,
                 ImdbId = serie.ImdbId,
                 SeriesFolder = serie.Path,
                 SeasonNumber = episode.SeasonNumber,

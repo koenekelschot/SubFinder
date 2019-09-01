@@ -39,6 +39,7 @@ namespace SubFinder.Scanners.Implementations
             var converted = new Movie
             {
                 Title = movie.Title,
+                Year = movie.Year,
                 ImdbId = movie.ImdbId,
                 TmdbId = movie.TmdbId,
                 MovieFolder = movie.Path
