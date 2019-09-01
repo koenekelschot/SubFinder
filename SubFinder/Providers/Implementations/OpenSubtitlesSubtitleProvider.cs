@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SubFinder.Config;
 using SubFinder.Extensions;
+using SubFinder.HttpClients;
 using SubFinder.Languages;
 using SubFinder.Models;
 
@@ -19,24 +19,24 @@ namespace SubFinder.Providers.Implementations
     {
         public string ProviderName => nameof(OpenSubtitlesSubtitleProvider);
 
-        private string UrlMovieSearch(string imdbId) =>
-            $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlymovies-on/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
-        private string UrlSeriesSearch(string imdbId, int season, int episode) => 
-            $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
-        private static string UrlDownload(string subtitleId) =>
-            $"http://dl.opensubtitles.org/en/download/vrf-108d030f/sub/{subtitleId}";
+        private string MovieSearchUri(string imdbId) =>
+            $"en/search/sublanguageid-{_languages}/searchonlymovies-on/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
+        private string SeriesSearchUri(string imdbId, int season, int episode) => 
+            $"en/search/sublanguageid-{_languages}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
+        private static string DownloadUri(string subtitleId) =>
+            $"en/download/vrf-108d030f/sub/{subtitleId}";
 
         private readonly ILogger<OpenSubtitlesSubtitleProvider> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly OpenSubtitlesHttpClient _httpClient;
         private readonly string _languages;
 
         public OpenSubtitlesSubtitleProvider(
             ILogger<OpenSubtitlesSubtitleProvider> logger,
-            IHttpClientFactory httpClientFactory,
+            OpenSubtitlesHttpClient httpClient,
             IOptions<SubtitleConfig> config)
         {
             _logger = logger;
-            _httpClientFactory = httpClientFactory;
+            _httpClient = httpClient;
 
             var isoLanguages = config.Value.PreferredLanguages.Select(lang => Language.GetIsoPart2Bibliographic(lang));
             _languages = string.Join(',', isoLanguages);
@@ -44,13 +44,13 @@ namespace SubFinder.Providers.Implementations
 
         public async Task<IList<Subtitle>> SearchForEpisodeAsync(Episode episode)
         {
-            var requestUrl = UrlSeriesSearch(episode.ImdbId, episode.SeasonNumber, episode.EpisodeNumber);
+            var requestUrl = SeriesSearchUri(episode.ImdbId, episode.SeasonNumber, episode.EpisodeNumber);
             return await DoSearchRequestAsync(requestUrl);
         }
 
         public async Task<IList<Subtitle>> SearchForMovieAsync(Movie movie)
         {
-            var requestUrl = UrlMovieSearch(movie.ImdbId);
+            var requestUrl = MovieSearchUri(movie.ImdbId);
             return await DoSearchRequestAsync(requestUrl);
         }
 
@@ -61,7 +61,7 @@ namespace SubFinder.Providers.Implementations
                 throw new NotSupportedException("Wrong provider");
             }
 
-            var requestUrl = UrlDownload(subtitle.Id);
+            var requestUrl = DownloadUri(subtitle.Id);
             return await DoDownloadRequestAsync(requestUrl);
         }
 
@@ -69,10 +69,9 @@ namespace SubFinder.Providers.Implementations
         {
             try
             {
-                var client = _httpClientFactory.CreateClient(ProviderName);
                 var document = new HtmlDocument();
 
-                using (var responseStream = await client.GetStreamAsync(requestUrl))
+                using (var responseStream = await _httpClient.GetStreamAsync(requestUrl))
                 {
                     document.Load(responseStream);
                     responseStream.Close();
@@ -137,9 +136,7 @@ namespace SubFinder.Providers.Implementations
         {
             try
             {
-                var client = _httpClientFactory.CreateClient(ProviderName);
-
-                using (var responseStream = await client.GetStreamAsync(requestUrl))
+                using (var responseStream = await _httpClient.GetStreamAsync(requestUrl))
                 {
                     return await ExtractSubtitleFromResponseAsync(responseStream);
                 }
