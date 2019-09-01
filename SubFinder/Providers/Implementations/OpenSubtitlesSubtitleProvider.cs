@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -21,8 +23,8 @@ namespace SubFinder.Providers.Implementations
             $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlymovies-on/hd-on/imdbid-{imdbId}/sort-7/asc-0/xml";
         private string UrlSeriesSearch(string imdbId, int season, int episode) => 
             $"https://www.opensubtitles.org/en/search/sublanguageid-{_languages}/searchonlytvseries-on/season-{season}/episode-{episode}/hd-on/imdbid-{imdbId}/sort-7/asc-0";
-        private static string UrlDownload(string subtitleId) => 
-            $"https://dl.opensubtitles.org/en/download/sub/{subtitleId}";
+        private static string UrlDownload(string subtitleId) =>
+            $"http://dl.opensubtitles.org/en/download/vrf-108d030f/sub/{subtitleId}";
 
         private readonly ILogger<OpenSubtitlesSubtitleProvider> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
@@ -52,15 +54,29 @@ namespace SubFinder.Providers.Implementations
             return await DoSearchRequestAsync(requestUrl);
         }
 
+        public async Task<Memory<byte>> DownloadAsync(Subtitle subtitle)
+        {
+            if (subtitle.Provider != ProviderName)
+            {
+                throw new NotSupportedException("Wrong provider");
+            }
+
+            var requestUrl = UrlDownload(subtitle.Id);
+            return await DoDownloadRequestAsync(requestUrl);
+        }
+
         private async Task<IList<Subtitle>> DoSearchRequestAsync(string requestUrl)
         {
             try
             {
-                var response = await _httpClientFactory.CreateClient(ProviderName).GetAsync(requestUrl);
-                response.EnsureSuccessStatusCode();
+                var client = _httpClientFactory.CreateClient(ProviderName);
+                var document = new HtmlDocument();
 
-                HtmlDocument document = new HtmlDocument();
-                document.LoadHtml(await response.Content.ReadAsStringAsync());
+                using (var responseStream = await client.GetStreamAsync(requestUrl))
+                {
+                    document.Load(responseStream);
+                    responseStream.Close();
+                }
 
                 return ParseSubtitles(document);
             }
@@ -93,7 +109,7 @@ namespace SubFinder.Providers.Implementations
             return new Subtitle
             {
                 Provider = ProviderName,
-                Id = node.ChildNodes["idsubtitlefile"].InnerText,
+                Id = node.ChildNodes["idsubtitle"].InnerText,
                 ReleaseName = node.ChildNodes["moviereleasename"].CharacterData(),
                 Language = GetSubtitleLanguage(node),
                 Added = GetSubtitleDateAdded(node),
@@ -115,6 +131,41 @@ namespace SubFinder.Providers.Implementations
         {
             var date = node.ChildNodes["subadddate"].GetAttributeValue("rfc3339", string.Empty);
             return DateTime.Parse(date);
+        }
+
+        private async Task<Memory<byte>> DoDownloadRequestAsync(string requestUrl)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient(ProviderName);
+
+                using (var responseStream = await client.GetStreamAsync(requestUrl))
+                {
+                    return await ExtractSubtitleFromResponseAsync(responseStream);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error downloading subtitle {ProviderName}");
+            }
+
+            return new Memory<byte>();
+        }
+
+        private async Task<Memory<byte>> ExtractSubtitleFromResponseAsync(Stream responseStream)
+        {
+            using (var archive = new ZipArchive(responseStream))
+            {
+                var subtitleEntry = archive.Entries.FirstOrDefault(entry => entry.Name.EndsWith(".srt"));
+                var memory = new Memory<byte>(new byte[subtitleEntry.Length]);
+
+                using (var stream = subtitleEntry.Open())
+                {
+                    await stream.ReadAsync(memory);
+                }
+
+                return memory;
+            }
         }
     }
 }
