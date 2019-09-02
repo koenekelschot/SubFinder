@@ -9,44 +9,23 @@ namespace SubFinder.Scanners.Implementations
 {
     public class SubtitleScanner : ISubtitleScanner
     {
-        private const string SearchPattern = "*.srt";
-        private readonly IList<string> _languageSuffixes = new List<string>();
+        private readonly IList<Language.IsoLanguage> _languages;
 
         public SubtitleScanner(
             IOptions<SubtitleConfig> config)
         {
-            foreach(var preferredLanguage in config.Value.PreferredLanguages)
-            {
-                _languageSuffixes.Add(Language.GetIsoPart1(preferredLanguage));
-            }
+            _languages = config.Value.PreferredLanguages;
         }
 
         public bool HasSubtitle(Media media)
         {
-            var directoryInfo = new DirectoryInfo(media.Folder);
-            if (!directoryInfo.Exists)
+            foreach (var language in _languages)
             {
-                return false;
-            }
-
-            var subtitles = directoryInfo.GetFiles(SearchPattern);
-            if (subtitles.Length == 0)
-            {
-                return false;
-            }
-
-            var mediaWithoutExtension = Path.GetFileNameWithoutExtension(media.File);
-            foreach (var subtitle in subtitles)
-            {
-                var subtitleWithoutExtension = Path.GetFileNameWithoutExtension(subtitle.Name);
-                foreach (var languageSuffix in _languageSuffixes)
+                var subtitleFileName = media.SubtitlePath(language);
+                if (File.Exists(subtitleFileName))
                 {
-                    var expectedSubtitleName = $"{mediaWithoutExtension}.{languageSuffix}";
-                    if (subtitleWithoutExtension.Equals(expectedSubtitleName))
-                    {
-                        return true;
-                    }
-                }
+                    return true;
+                };
             }
 
             return false;

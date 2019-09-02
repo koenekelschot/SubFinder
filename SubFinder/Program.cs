@@ -5,7 +5,6 @@ using SubFinder.Activities;
 using SubFinder.Config;
 using SubFinder.Extensions;
 using SubFinder.HttpClients;
-using SubFinder.Providers;
 using SubFinder.Providers.Implementations;
 using SubFinder.Scanners;
 using SubFinder.Scanners.Implementations;
@@ -66,6 +65,7 @@ namespace SubFinder
             services.AddSingleton<SearchMovieSubtitlesActivity>();
 
             services.AddSubtitleProvider<OpenSubtitlesSubtitleProvider, OpenSubtitlesHttpClient>();
+            services.AddSubtitleProvider<PodnapisiSubtitleProvider, PodnapisiHttpClient>();
 
             services.Configure<RadarrConfig>(configuration.TryGetSection("Radarr"));
             services.Configure<SonarrConfig>(configuration.TryGetSection("Sonarr"));
