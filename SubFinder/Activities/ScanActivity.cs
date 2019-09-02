@@ -29,18 +29,15 @@ namespace SubFinder.Activities
         public async Task ExecuteAsync()
         {
             var library = await ScanLibraryAsync();
-            var downloadTasks = new List<Task>();
 
             foreach (var media in library)
             {
                 if (!_subtitleScanner.HasSubtitle(media))
                 {
                     _logger.LogWarning($"No subtitle found for {media.Title}");
-                    downloadTasks.Add(_downloadSubtitleActivity.ExecuteAsync(media));
+                    await _downloadSubtitleActivity.ExecuteAsync(media);
                 }
             }
-
-            await Task.WhenAll(downloadTasks);
         }
 
         private async Task<IList<Media>> ScanLibraryAsync()
