@@ -48,7 +48,7 @@ namespace SubFinder.Activities
             var preferredSubtitles = GetPreferredSubtitles(foundSubtitles);
             var downloadedSubtitles = await DownloadSubtitlesAsync(preferredSubtitles);
 
-            foreach (var (language, data) in downloadedSubtitles)
+            foreach (var (language, data) in downloadedSubtitles.Where(dl => !dl.data.IsEmpty))
             {
                 await SaveSubtitleToFileAsync(media.SubtitlePath(language), data);
             }

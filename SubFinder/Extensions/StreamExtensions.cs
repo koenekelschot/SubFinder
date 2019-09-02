@@ -14,7 +14,7 @@ namespace SubFinder.Extensions
         {
             using (var archive = new ZipArchive(stream))
             {
-                var subtitleEntry = archive.Entries.FirstOrDefault(entry => entry.Name.EndsWith(SubtitleFileExtension));
+                var subtitleEntry = archive.Entries.First(entry => entry.Name.EndsWith(SubtitleFileExtension));
                 var memory = new Memory<byte>(new byte[subtitleEntry.Length]);
 
                 using (var entryStream = subtitleEntry.Open())
