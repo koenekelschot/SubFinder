@@ -128,9 +128,9 @@ namespace SubFinder.Providers.Implementations
 
         private string GetReleaseName(HtmlNode node)
         {
-            return node.Descendants("span")
-                .First(desc => desc.GetAttributeValue("class", string.Empty) == "release")
-                .InnerText;
+            var releaseNode = node.Descendants("span")
+                .FirstOrDefault(desc => desc.GetAttributeValue("class", string.Empty) == "release");
+            return releaseNode?.InnerText;
         }
 
         private Language.IsoLanguage GetSubtitleLanguage(HtmlNode node)
