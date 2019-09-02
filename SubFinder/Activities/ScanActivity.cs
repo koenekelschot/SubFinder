@@ -2,6 +2,7 @@
 using SubFinder.Models;
 using SubFinder.Scanners;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SubFinder.Activities
@@ -45,7 +46,7 @@ namespace SubFinder.Activities
         private async Task<IList<Media>> ScanLibraryAsync()
         {
             var library = new List<Media>();
-            var scanTasks = new List<Task<IList<Media>>>();
+            var scanTasks = new List<Task<IList<Media>>>(_scanners.Count());
 
             foreach (var scanner in _scanners)
             {

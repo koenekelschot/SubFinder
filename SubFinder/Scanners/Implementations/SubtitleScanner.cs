@@ -17,8 +17,7 @@ namespace SubFinder.Scanners.Implementations
         {
             foreach(var preferredLanguage in config.Value.PreferredLanguages)
             {
-                var isoPart = Language.GetIsoPart1(preferredLanguage);
-                _languageSuffixes.Add($".{isoPart}");
+                _languageSuffixes.Add(Language.GetIsoPart1(preferredLanguage));
             }
         }
 
@@ -36,12 +35,14 @@ namespace SubFinder.Scanners.Implementations
                 return false;
             }
 
+            var mediaWithoutExtension = Path.GetFileNameWithoutExtension(media.File);
             foreach (var subtitle in subtitles)
             {
-                var filenameWithoutExtension = Path.GetFileNameWithoutExtension(subtitle.Name);
+                var subtitleWithoutExtension = Path.GetFileNameWithoutExtension(subtitle.Name);
                 foreach (var languageSuffix in _languageSuffixes)
                 {
-                    if (filenameWithoutExtension.EndsWith(languageSuffix))
+                    var expectedSubtitleName = $"{mediaWithoutExtension}.{languageSuffix}";
+                    if (subtitleWithoutExtension.Equals(expectedSubtitleName))
                     {
                         return true;
                     }

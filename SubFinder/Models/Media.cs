@@ -9,10 +9,5 @@
         public string File { get; set; }
         public string OriginalName { get; set; }
         public string Quality { get; set; }
-        
-        public override string ToString()
-        {
-            return $"{Title}\r\nFolder: {Folder}\r\nFile: {File}";
-        }
     }
 }
